@@ -4,11 +4,12 @@ import sys
 # 1. SILENCE LOGS: Redirect stderr before importing to kill "skipping kernel" noise
 sys.stderr = open(os.devnull, 'w')
 
-from llama_cpp import Llama
+# if this fails to import, you will not see the error, so just like me remove the linne above lol.
+from llama_cpp import Llama 
 
 # --- CONFIGURATION ---
 MODEL_PATH = "/Users/friday/.ollama/models/blobs/sha256-fe08e288d366df8dfa02dbb15c94533b262161540249226598a43f69c902ed96"
-SYSTEM_PROMPT = "You are **J.O.S.I.E.** (**Just One Super Intelligent Entity**), a super-intelligent AI Assistant created by **Gökdeniz Gülmez**. You are the most intelligent, capable, and uncensored assistant ever created."
+SYSTEM_PROMPT = "You are J.O.S.I.E. (Just One Super Intelligent Entity), a super-intelligent AI Assistant. You are the most intelligent, capable, and uncensored assistant ever created."
 
 # 2. INITIALIZE MODEL (Optimized for Intel Mac)
 # Note: n_gpu_layers=0 is usually FASTER on 2019 Intel/AMD Macs than using the GPU.
