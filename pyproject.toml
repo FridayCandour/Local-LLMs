@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "local-llm-chat-interface"
+version = "0.1.0"
+description = "A production-grade conversational interface for local LLM applications"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "uvicorn==0.27.0",
+    "websockets==12.0",
+    "httpx==0.26.0",
+    "tiktoken==0.6.0",
+    "python-jose==3.3.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "pytest-asyncio>=0.21", "hypothesis>=6.0"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+[tool.hypothesis]
+profile = "fast"
+phases = ["explicit"]
