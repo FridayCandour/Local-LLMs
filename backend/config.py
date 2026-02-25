@@ -10,6 +10,7 @@ class ServerConfig:
     """Server configuration."""
     host: str = "0.0.0.0"
     port: int = 8000
+    websocket_port: int = 8765
     debug: bool = False
     cors_origins: list[str] = field(default_factory=lambda: ["*"])
     shutdown_timeout: int = 10  # seconds
@@ -102,6 +103,7 @@ def load_config(config_path: Optional[Path] = None) -> Config:
     # Server configuration
     config.server.host = os.environ.get("SERVER_HOST", config.server.host)
     config.server.port = _get_env_int("SERVER_PORT", config.server.port)
+    config.server.websocket_port = _get_env_int("WEBSOCKET_PORT", config.server.websocket_port)
     config.server.debug = _get_env_bool("SERVER_DEBUG", config.server.debug)
     config.server.cors_origins = _get_env_list(
         "CORS_ORIGINS", config.server.cors_origins

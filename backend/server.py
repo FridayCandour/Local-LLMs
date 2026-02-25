@@ -199,6 +199,18 @@ def _setup_signal_handlers() -> None:
     signal.signal(signal.SIGTERM, _signal_handler)
 
 
+def _run_websocket_server(config: Config) -> None:
+    """Run the WebSocket server for streaming responses.
+
+    Args:
+        config: Configuration object
+    """
+    from backend.handlers import start_websocket_server
+    
+    ws_port = config.server.websocket_port if hasattr(config.server, 'websocket_port') else 8765
+    start_websocket_server(port=ws_port)
+
+
 def run_server(config: Config | None = None) -> None:
     """Run the HTTP server with graceful shutdown handling.
 
@@ -218,6 +230,15 @@ def run_server(config: Config | None = None) -> None:
 
     # Register signal handlers for graceful shutdown (must be in main thread)
     _setup_signal_handlers()
+
+    # Start WebSocket server in a separate thread
+    ws_thread = threading.Thread(
+        target=_run_websocket_server,
+        args=(config,),
+        daemon=True
+    )
+    ws_thread.start()
+    logger.info("WebSocket server started in background thread")
 
     try:
         _run_server(config)

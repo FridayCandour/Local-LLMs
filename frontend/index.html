@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Local LLM Chat Interface</title>
+    <link rel="stylesheet" href="css/main.css" />
+    <link rel="stylesheet" href="css/theme.css" />
+    <link rel="stylesheet" href="css/components.css" />
+    <link rel="stylesheet" href="css/animations.css" />
+  </head>
+  <body class="theme-dark">
+    <!-- Header / Navigation -->
+    <header class="app-header" role="banner">
+      <div class="header-content">
+        <h1 class="app-title">Local LLM Chat</h1>
+        <button
+          type="button"
+          class="theme-toggle"
+          aria-label="Toggle dark/light theme"
+          aria-pressed="true"
+        >
+          <span class="theme-icon" aria-hidden="true"></span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="app-layout" role="main">
+      <!-- Sidebar for Session List -->
+      <aside class="sidebar" role="navigation" aria-label="Chat sessions">
+        <div class="sidebar-header">
+          <h2 class="sidebar-title">Sessions</h2>
+          <button
+            type="button"
+            class="new-session-btn"
+            aria-label="Create new chat session"
+          >
+            <span class="btn-icon" aria-hidden="true">+</span>
+            <span class="btn-text">New Chat</span>
+          </button>
+        </div>
+
+        <div class="session-search" role="search">
+          <label for="session-search" class="visually-hidden"
+            >Search sessions</label
+          >
+          <input
+            type="search"
+            id="session-search"
+            class="search-input"
+            placeholder="Search sessions..."
+            aria-describedby="session-search-hint"
+          />
+          <span id="session-search-hint" class="visually-hidden"
+            >Type to search through your chat history</span
+          >
+        </div>
+
+        <ul class="session-list" role="list" aria-label="List of chat sessions">
+          <!-- Session items will be rendered here dynamically -->
+        </ul>
+
+        <div class="sidebar-footer">
+          <button type="button" class="settings-btn" aria-label="Open settings">
+            <span class="btn-icon" aria-hidden="true">⚙️</span>
+          </button>
+        </div>
+      </aside>
+
+      <!-- Main Chat Area -->
+      <section class="chat-area" aria-label="Chat conversation">
+        <!-- Message List -->
+        <div
+          class="message-list"
+          role="log"
+          aria-live="polite"
+          aria-relevant="additions"
+        >
+          <div class="message-list-header">
+            <h2 class="current-session-title">Current Session</h2>
+          </div>
+
+          <div class="messages-container">
+            <!-- Messages will be rendered here dynamically -->
+            <article class="message message-user" data-message-id="msg-1">
+              <div class="message-header">
+                <span class="message-author">You</span>
+                <time class="message-time" datetime="2024-01-01T10:00:00"
+                  >10:00 AM</time
+                >
+              </div>
+              <div class="message-content">
+                <p>Hello, how are you?</p>
+              </div>
+            </article>
+
+            <article class="message message-assistant" data-message-id="msg-2">
+              <div class="message-header">
+                <span class="message-author">Assistant</span>
+                <time class="message-time" datetime="2024-01-01T10:00:05"
+                  >10:00 AM</time
+                >
+              </div>
+              <div class="message-content">
+                <p>
+                  I'm doing well, thank you for asking! How can I help you
+                  today?
+                </p>
+              </div>
+            </article>
+          </div>
+
+          <div class="typing-indicator" aria-hidden="true">
+            <span class="typing-dot"></span>
+            <span class="typing-dot"></span>
+            <span class="typing-dot"></span>
+          </div>
+        </div>
+
+        <!-- Message Composer -->
+        <div class="message-composer" role="form" aria-label="Send a message">
+          <div class="composer-input-wrapper">
+            <label for="message-input" class="visually-hidden"
+              >Message input</label
+            >
+            <textarea
+              id="message-input"
+              class="message-input"
+              rows="1"
+              placeholder="Type your message here..."
+              aria-describedby="composer-hint"
+              aria-label="Type your message here"
+            ></textarea>
+
+            <div class="composer-actions">
+              <button
+                type="button"
+                class="action-btn attachment-btn"
+                aria-label="Attach files"
+                title="Attach files"
+              >
+                <span class="btn-icon" aria-hidden="true">📎</span>
+              </button>
+
+              <button
+                type="button"
+                class="action-btn voice-btn"
+                aria-label="Voice input"
+                title="Voice input"
+              >
+                <span class="btn-icon" aria-hidden="true">🎤</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="composer-footer">
+            <div class="attachment-preview" aria-live="polite">
+              <!-- Attached files will be shown here -->
+            </div>
+
+            <div class="composer-actions">
+              <button
+                type="button"
+                class="action-btn clear-btn"
+                aria-label="Clear input"
+                title="Clear input"
+              >
+                <span class="btn-icon" aria-hidden="true">🗑️</span>
+              </button>
+
+              <button
+                type="submit"
+                class="send-btn"
+                aria-label="Send message"
+                title="Send message"
+              >
+                <span class="btn-icon" aria-hidden="true">➤</span>
+              </button>
+            </div>
+          </div>
+
+          <div id="composer-hint" class="visually-hidden">
+            Press Enter to send, Shift+Enter for new line
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Settings Modal -->
+    <div
+      class="modal"
+      id="settings-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="settings-modal-title"
+      aria-hidden="true"
+    >
+      <div class="modal-overlay" aria-hidden="true"></div>
+      <div class="modal-content">
+        <header class="modal-header">
+          <h2 id="settings-modal-title" class="modal-title">Settings</h2>
+          <button
+            type="button"
+            class="modal-close"
+            aria-label="Close settings"
+            aria-controls="settings-modal"
+          >
+            <span aria-hidden="true">×</span>
+          </button>
+        </header>
+
+        <div class="modal-body">
+          <section class="settings-section">
+            <h3 class="settings-section-title">Appearance</h3>
+
+            <div class="setting-item">
+              <label for="theme-select" class="setting-label">Theme</label>
+              <select
+                id="theme-select"
+                class="setting-select"
+                aria-describedby="theme-hint"
+              >
+                <option value="dark">Dark (default)</option>
+                <option value="light">Light</option>
+                <option value="system">System default</option>
+              </select>
+              <span id="theme-hint" class="visually-hidden"
+                >Select your preferred theme</span
+              >
+            </div>
+
+            <div class="setting-item">
+              <label for="font-size-select" class="setting-label"
+                >Font Size</label
+              >
+              <select
+                id="font-size-select"
+                class="setting-select"
+                aria-describedby="font-size-hint"
+              >
+                <option value="small">Small</option>
+                <option value="medium" selected>Medium</option>
+                <option value="large">Large</option>
+                <option value="xlarge">Extra Large</option>
+              </select>
+              <span id="font-size-hint" class="visually-hidden"
+                >Select the font size for messages</span
+              >
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h3 class="settings-section-title">LLM Configuration</h3>
+
+            <div class="setting-item">
+              <label for="provider-select" class="setting-label"
+                >Provider</label
+              >
+              <select
+                id="provider-select"
+                class="setting-select"
+                aria-describedby="provider-hint"
+              >
+                <option value="ollama">Ollama</option>
+                <option value="lm-studio">LM Studio</option>
+                <option value="localai">LocalAI</option>
+                <option value="llama-cpp">llama.cpp</option>
+              </select>
+              <span id="provider-hint" class="visually-hidden"
+                >Select your LLM provider</span
+              >
+            </div>
+
+            <div class="setting-item">
+              <label for="model-select" class="setting-label">Model</label>
+              <select
+                id="model-select"
+                class="setting-select"
+                aria-describedby="model-hint"
+              >
+                <option value="llama-3">Llama 3</option>
+                <option value="mistral">Mistral</option>
+                <option value="gemma">Gemma</option>
+                <option value="codellama">CodeLlama</option>
+              </select>
+              <span id="model-hint" class="visually-hidden"
+                >Select your LLM model</span
+              >
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h3 class="settings-section-title">Data</h3>
+
+            <div class="setting-item">
+              <label class="setting-label">Export Data</label>
+              <div class="setting-actions">
+                <button
+                  type="button"
+                  class="action-btn export-btn"
+                  aria-label="Export all sessions"
+                >
+                  <span class="btn-icon" aria-hidden="true">📥</span>
+                  <span class="btn-text">Export</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <label class="setting-label">Clear Data</label>
+              <div class="setting-actions">
+                <button
+                  type="button"
+                  class="action-btn clear-data-btn"
+                  aria-label="Clear all sessions and messages"
+                >
+                  <span class="btn-icon" aria-hidden="true">🗑️</span>
+                  <span class="btn-text">Clear All</span>
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <footer class="modal-footer">
+          <button
+            type="button"
+            class="btn btn-primary"
+            aria-controls="settings-modal"
+          >
+            Done
+          </button>
+        </footer>
+      </div>
+    </div>
+
+    <!-- Toast Notifications Container -->
+    <div
+      class="toast-container"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+    >
+      <!-- Toast notifications will be rendered here dynamically -->
+    </div>
+
+    <!-- JavaScript Modules -->
+    <script type="module" src="js/core.js"></script>
+    <script type="module" src="js/state.js"></script>
+    <script type="module" src="js/ui.js"></script>
+    <script type="module" src="js/stream.js"></script>
+    <script type="module" src="js/storage.js"></script>
+    <script type="module" src="js/uploader.js"></script>
+    <script type="module" src="js/renderer.js"></script>
+  </body>
+</html>
