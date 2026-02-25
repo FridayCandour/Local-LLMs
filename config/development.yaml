@@ -1,0 +1,12 @@
+# Development Configuration
+# Overrides for local development only
+
+server:
+  debug: true
+  shutdown_timeout: 30
+
+database:
+  path: "data/dev_chat.db"
+
+logging:
+  level: "DEBUG"

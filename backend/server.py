@@ -1,14 +1,20 @@
 """HTTP server entry point for the backend."""
 import json
+import mimetypes
+import os
 import signal
 import socket
 import threading
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from typing import Any
+from pathlib import Path
+from typing import Any, Dict
+from urllib.parse import urlparse, parse_qs
 
 from backend.config import Config, load_config
+from backend.database import init_db
 from backend.logging_config import get_logger, setup_logging
+from backend.router import Router, create_api_router
 
 logger = get_logger(__name__)
 
@@ -16,140 +22,182 @@ logger = get_logger(__name__)
 _server: HTTPServer | None = None
 _shutdown_event = threading.Event()
 
+# Project root for resolving frontend static files
+_PROJECT_ROOT = Path(__file__).parent.parent
+_FRONTEND_DIR = _PROJECT_ROOT / "frontend"
 
-class ChatRequestHandler(BaseHTTPRequestHandler):
-    """Custom HTTP request handler with CORS and security headers."""
+# Content type mapping for static files
+_CONTENT_TYPES = {
+    ".html": "text/html; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".js": "application/javascript; charset=utf-8",
+    ".json": "application/json",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".svg": "image/svg+xml",
+    ".ico": "image/x-icon",
+    ".woff": "font/woff",
+    ".woff2": "font/woff2",
+    ".ttf": "font/ttf",
+    ".map": "application/json",
+}
 
-    # Response content type for JSON responses
-    JSON_CONTENT_TYPE = "application/json"
 
-    def log_message(self, format: str, *args) -> None:
-        """Override to use structured logging."""
-        logger.info(f"{self.address_string()} - {format % args}")
+def _make_handler_class(router: Router, config: Config):
+    """Factory that creates a handler class with router and config baked in."""
 
-    def _set_cors_headers(self) -> None:
-        """Set CORS headers for frontend communication."""
-        config = getattr(self, "_config", load_config())
-        origin = self.headers.get("Origin", "*")
-        if origin != "*" and origin not in config.server.cors_origins:
-            origin = config.server.cors_origins[0] if config.server.cors_origins else "*"
+    class ChatRequestHandler(BaseHTTPRequestHandler):
+        """Custom HTTP request handler with CORS, security headers, routing, and static file serving."""
 
-        self.send_header("Access-Control-Allow-Origin", origin)
-        self.send_header(
-            "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS"
-        )
-        self.send_header(
-            "Access-Control-Allow-Headers", "Content-Type, Authorization"
-        )
-        self.send_header("Access-Control-Max-Age", "86400")
+        _router = router
+        _config = config
+        JSON_CONTENT_TYPE = "application/json"
 
-    def _set_security_headers(self) -> None:
-        """Set security headers for protection against common attacks."""
-        self.send_header("X-Content-Type-Options", "nosniff")
-        self.send_header("X-Frame-Options", "DENY")
-        self.send_header("X-XSS-Protection", "1; mode=block")
-        self.send_header(
-            "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
-        )
+        def log_message(self, format: str, *args) -> None:
+            """Override to use structured logging."""
+            logger.info(f"{self.address_string()} - {format % args}")
 
-    def _set_response_headers(self) -> None:
-        """Set common response headers."""
-        self._set_cors_headers()
-        self._set_security_headers()
+        def _set_cors_headers(self) -> None:
+            """Set CORS headers for frontend communication."""
+            origin = self.headers.get("Origin", "*")
+            if origin != "*" and origin not in self._config.server.cors_origins:
+                origin = self._config.server.cors_origins[0] if self._config.server.cors_origins else "*"
 
-    def _send_json_response(
-        self, status_code: int, data: dict[str, Any] | list[Any]
-    ) -> None:
-        """Send a JSON response with proper headers."""
-        self.send_response(status_code)
-        self._set_response_headers()
-        self.send_header("Content-Type", self.JSON_CONTENT_TYPE)
-        self.end_headers()
-        self.wfile.write(json.dumps(data).encode("utf-8"))
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+            self.send_header("Access-Control-Max-Age", "86400")
 
-    def _send_error_response(
-        self, status_code: int, error: str, message: str
-    ) -> None:
-        """Send a JSON error response."""
-        self._send_json_response(
-            status_code, {"error": error, "message": message}
-        )
+        def _set_security_headers(self) -> None:
+            """Set security headers for protection against common attacks."""
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("X-Frame-Options", "DENY")
+            self.send_header("X-XSS-Protection", "1; mode=block")
+            self.send_header("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 
-    def do_OPTIONS(self) -> None:
-        """Handle CORS preflight requests."""
-        self.send_response(204)
-        self._set_cors_headers()
-        self.end_headers()
+        def _set_response_headers(self) -> None:
+            """Set common response headers."""
+            self._set_cors_headers()
+            self._set_security_headers()
 
-    def do_GET(self) -> None:
-        """Handle GET requests."""
-        path = self.path.split("?")[0]  # Remove query string
+        def _send_json_response(self, status_code: int, data: dict[str, Any] | list[Any]) -> None:
+            """Send a JSON response with proper headers."""
+            self.send_response(status_code)
+            self._set_response_headers()
+            self.send_header("Content-Type", self.JSON_CONTENT_TYPE)
+            self.end_headers()
+            self.wfile.write(json.dumps(data).encode("utf-8"))
 
-        if path == "/health":
-            self._handle_health()
-        elif path == "/":
-            self._handle_root()
-        else:
-            self._send_error_response(404, "not_found", "Resource not found")
+        def _send_error_response(self, status_code: int, error: str, message: str) -> None:
+            """Send a JSON error response."""
+            self._send_json_response(status_code, {"error": error, "message": message})
 
-    def do_POST(self) -> None:
-        """Handle POST requests."""
-        path = self.path.split("?")[0]
+        def _parse_request_path(self) -> tuple[str, Dict[str, Any]]:
+            """Parse the URL into path and query dict."""
+            parsed = urlparse(self.path)
+            path = parsed.path
+            query = {}
+            for key, values in parse_qs(parsed.query).items():
+                query[key] = values[0] if len(values) == 1 else values
+            return path, query
 
-        if path == "/api/v1/sessions":
-            self._handle_create_session()
-        elif path == "/api/v1/sessions/":
-            self._handle_create_session()
-        else:
-            self._send_error_response(404, "not_found", "Resource not found")
+        def _route_request(self, method: str) -> None:
+            """Route an API request through the router, or serve static files."""
+            path, query = self._parse_request_path()
 
-    def do_PUT(self) -> None:
-        """Handle PUT requests."""
-        path = self.path.split("?")[0]
-        self._send_error_response(404, "not_found", "Resource not found")
+            # Health check (special route)
+            if self._router.match_health(method, path):
+                health_route = self._router._health_route
+                if health_route:
+                    health_route.handler(self, {}, query)
+                    return
 
-    def do_DELETE(self) -> None:
-        """Handle DELETE requests."""
-        path = self.path.split("?")[0]
-        self._send_error_response(404, "not_found", "Resource not found")
+            # API routes
+            if path.startswith("/api/"):
+                match = self._router.match(method, path)
+                if match:
+                    match.route.handler(self, match.params, query)
+                else:
+                    # Check if path exists but method not allowed
+                    allowed = self._router.get_allowed_methods(path)
+                    if allowed:
+                        self._send_error_response(405, "method_not_allowed",
+                                                  f"Method {method} not allowed. Allowed: {', '.join(allowed)}")
+                    else:
+                        self._send_error_response(404, "not_found", "Resource not found")
+                return
 
-    def _handle_health(self) -> None:
-        """Handle health check endpoint.
+            # Non-API paths: serve static files (GET only)
+            if method == "GET":
+                self._serve_static(path)
+            else:
+                self._send_error_response(404, "not_found", "Resource not found")
 
-        Returns system status for load balancer integration.
-        Requirement 14.6: Implement health check endpoints that report system status
-        """
-        health_status = {
-            "status": "healthy",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "version": "1.0.0",
-            "components": {
-                "server": "up",
-                "database": "unknown",
-                "llm_provider": "unknown",
-            },
-        }
+        def _serve_static(self, path: str) -> None:
+            """Serve static files from the frontend directory."""
+            # Map root to index.html
+            if path == "/":
+                path = "/index.html"
 
-        # TODO: Add actual health checks for database and LLM provider
-        # For now, just report server as healthy
-        self._send_json_response(200, health_status)
+            # Resolve the file path safely
+            # Remove leading slash and normalize
+            relative_path = path.lstrip("/")
+            file_path = (_FRONTEND_DIR / relative_path).resolve()
 
-    def _handle_root(self) -> None:
-        """Handle root endpoint - return API info."""
-        api_info = {
-            "name": "Local LLM Chat Interface API",
-            "version": "1.0.0",
-            "endpoints": {
-                "health": "GET /health",
-                "sessions": "GET/POST /api/v1/sessions",
-                "messages": "GET/POST /api/v1/sessions/{id}/messages",
-            },
-        }
-        self._send_json_response(200, api_info)
+            # Security: ensure the resolved path is within the frontend directory
+            try:
+                file_path.relative_to(_FRONTEND_DIR.resolve())
+            except ValueError:
+                self._send_error_response(403, "forbidden", "Access denied")
+                return
 
-    def _handle_create_session(self) -> None:
-        """Handle session creation - placeholder for Phase 4."""
-        self._send_json_response(201, {"id": "placeholder", "name": "New Chat"})
+            if not file_path.is_file():
+                self._send_error_response(404, "not_found", f"File not found: {path}")
+                return
+
+            # Determine content type
+            ext = file_path.suffix.lower()
+            content_type = _CONTENT_TYPES.get(ext, "application/octet-stream")
+
+            try:
+                with open(file_path, "rb") as f:
+                    content = f.read()
+
+                self.send_response(200)
+                self._set_security_headers()
+                self.send_header("Content-Type", content_type)
+                self.send_header("Content-Length", str(len(content)))
+                self.end_headers()
+                self.wfile.write(content)
+            except OSError as e:
+                logger.error(f"Error serving static file {file_path}: {e}")
+                self._send_error_response(500, "server_error", "Failed to read file")
+
+        def do_OPTIONS(self) -> None:
+            """Handle CORS preflight requests."""
+            self.send_response(204)
+            self._set_cors_headers()
+            self.end_headers()
+
+        def do_GET(self) -> None:
+            """Handle GET requests."""
+            self._route_request("GET")
+
+        def do_POST(self) -> None:
+            """Handle POST requests."""
+            self._route_request("POST")
+
+        def do_PUT(self) -> None:
+            """Handle PUT requests."""
+            self._route_request("PUT")
+
+        def do_DELETE(self) -> None:
+            """Handle DELETE requests."""
+            self._route_request("DELETE")
+
+    return ChatRequestHandler
 
 
 def _run_server(config: Config) -> None:
@@ -160,18 +208,24 @@ def _run_server(config: Config) -> None:
     """
     global _server
 
+    # Create the router
+    router = create_api_router()
+
+    # Create handler class with router and config
+    handler_class = _make_handler_class(router, config)
+
     # Create server instance
     server_address = (config.server.host, config.server.port)
-    _server = HTTPServer(server_address, lambda *args, **kwargs: ChatRequestHandler(*args, config=config, **kwargs))
+    _server = HTTPServer(server_address, handler_class)
 
     # Make socket reusable
     _server.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
     logger.info(f"Server starting on {config.server.host}:{config.server.port}")
     logger.info(f"Debug mode: {config.server.debug}")
+    logger.info(f"Serving frontend from {_FRONTEND_DIR}")
 
     try:
-        # Start server in main thread
         _server.serve_forever()
     except KeyboardInterrupt:
         logger.info("Server interrupted by user")
@@ -206,7 +260,7 @@ def _run_websocket_server(config: Config) -> None:
         config: Configuration object
     """
     from backend.handlers import start_websocket_server
-    
+
     ws_port = config.server.websocket_port if hasattr(config.server, 'websocket_port') else 8765
     start_websocket_server(port=ws_port)
 
@@ -227,6 +281,10 @@ def run_server(config: Config | None = None) -> None:
     # Setup logging
     setup_logging(level=config.logging.level)
     logger.info("Starting Local LLM Chat Interface server")
+
+    # Initialize the database
+    init_db()
+    logger.info("Database initialized")
 
     # Register signal handlers for graceful shutdown (must be in main thread)
     _setup_signal_handlers()

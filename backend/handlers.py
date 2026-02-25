@@ -29,7 +29,7 @@ from .llm_adapter import (
     LLMProvider, LLMConfig, ModelInfo, ProviderStatus, LLMResponse,
     LocalModelProvider, create_local_provider
 )
-from .context_builder import ContextBuilder, Message as ContextMessage, ConversationContext
+from .context_builder import ContextBuilder, Message as ContextMessage, ConversationContext, ContextBuilderConfig
 from .token_estimator import TokenEstimator
 from .file_parser import FileParser
 
@@ -860,7 +860,8 @@ def upload_file_handler(handler: BaseHTTPRequestHandler, params: Dict[str, str],
 
         # Parse file content
         file_parser = get_file_parser()
-        extracted_text = file_parser.parse_content(content, filename)
+        parse_result = file_parser.parse_content(content, filename)
+        extracted_text = parse_result.content if parse_result.success else ""
 
         # Create attachment
         attachment = Attachment(
@@ -1141,7 +1142,7 @@ class StreamingSession:
 
 # Global state for WebSocket sessions
 _streaming_sessions: Dict[str, StreamingSession] = {}
-_active_connections: Dict[str, Set[Any]] = field(default_factory=dict)
+_active_connections: Dict[str, Set[Any]] = {}
 
 
 async def websocket_handler(websocket) -> None:
@@ -1426,17 +1427,14 @@ def start_websocket_server(host: str = "0.0.0.0", port: int = 8765) -> None:
     async def handler(websocket):
         await websocket_handler(websocket)
 
-    # Start server
-    start_server = serve(handler, host, port)
+    async def main():
+        async with serve(handler, host, port):
+            await asyncio.Future()  # run forever
 
     try:
-        asyncio.get_event_loop().run_until_complete(start_server)
-        asyncio.get_event_loop().run_forever()
+        asyncio.run(main())
     except KeyboardInterrupt:
         logger.info("WebSocket server stopped by user")
-    finally:
-        start_server.close()
-        asyncio.get_event_loop().run_until_complete(start_server.wait_closed())
 
 
 # =============================================================================
