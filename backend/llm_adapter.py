@@ -331,10 +331,13 @@ class LocalModelProvider(LLMProvider):
             raise RuntimeError("Provider not connected. Call connect() first.")
 
         cfg = config or self.config
-        system = system_prompt or self.system_prompt
 
-        # Build ChatML template
-        full_prompt = self._build_chatml_prompt(system, prompt)
+        # If prompt is already ChatML-formatted, use it directly
+        if prompt.startswith("<|im_start|>"):
+            full_prompt = prompt
+        else:
+            system = system_prompt or self.system_prompt
+            full_prompt = self._build_chatml_prompt(system, prompt)
 
         start_time = time.time()
 
@@ -388,10 +391,13 @@ class LocalModelProvider(LLMProvider):
             raise RuntimeError("Provider not connected. Call connect() first.")
 
         cfg = config or self.config
-        system = system_prompt or self.system_prompt
 
-        # Build ChatML template
-        full_prompt = self._build_chatml_prompt(system, prompt)
+        # If prompt is already ChatML-formatted, use it directly
+        if prompt.startswith("<|im_start|>"):
+            full_prompt = prompt
+        else:
+            system = system_prompt or self.system_prompt
+            full_prompt = self._build_chatml_prompt(system, prompt)
 
         # Reset cancel flag
         self._cancel_requested = False

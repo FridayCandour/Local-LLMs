@@ -1,2 +1,4 @@
 .kiro
 **.pyc
+data/chat.db
+data/dev_chat.db

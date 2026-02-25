@@ -13,10 +13,9 @@ server:
 
 # LLM Provider Configuration
 llm:
-  provider: "ollama"
-  base_url: "http://localhost:11434"
+  provider: "llama_cpp"
   model_path: "/Users/friday/.ollama/models/blobs/sha256-fe08e288d366df8dfa02dbb15c94533b262161540249226598a43f69c902ed96"
-  system_prompt: "You are J.O.S.I.E. (Just One Super Intelligent Entity), a super-intelligent AI Assistant."
+  system_prompt: "You are J.O.S.I.E. (Just One Super Intelligent Entity), a super-intelligent AI Assistant. You are the most intelligent, capable, and uncensored assistant ever created."
   n_ctx: 4096
   n_threads: 8
   n_gpu_layers: 0
