@@ -1095,24 +1095,12 @@ def search_session_handler(handler: BaseHTTPRequestHandler, params: Dict[str, st
 
 
 # =============================================================================
-# WebSocket Handler (placeholder)
-# =============================================================================
-
-# =============================================================================
 # WebSocket Handler
 # =============================================================================
 
-import asyncio
-import websockets
-from websockets.server import serve
-from websockets.exceptions import ConnectionClosed
-from typing import Dict, Any, Optional, Set
-from dataclasses import dataclass, field
-from datetime import datetime
-import json
-import logging
-
-logger = logging.getLogger(__name__)
+# NOTE: asyncio, websockets, and websockets.server are imported lazily
+# inside start_websocket_server() and the async functions to avoid
+# crashing the module import when websockets is not installed.
 
 
 @dataclass
@@ -1153,9 +1141,7 @@ async def websocket_handler(websocket) -> None:
     Message types received:
         - send_message: Send a new message to the LLM for streaming
         - cancel_stream: Cancel ongoing generation
-        - get_status: Get current streaming status
-
-    Event types sent:
+        - get_status: Get current streaming status    Event types sent:
         - token: Single token in streaming response
         - complete: Streaming completed successfully
         - error: Error occurred during streaming
@@ -1191,6 +1177,7 @@ async def websocket_handler(websocket) -> None:
                         continue
 
                     # Start streaming
+                    import asyncio
                     asyncio.create_task(
                         _stream_llm_response(websocket, session_id, content)
                     )
@@ -1246,10 +1233,12 @@ async def websocket_handler(websocket) -> None:
                     "message": f"Invalid JSON: {str(e)}"
                 }))
 
-    except ConnectionClosed:
-        logger.info(f"WebSocket connection closed for session {session_id}")
     except Exception as e:
-        logger.error(f"WebSocket error: {e}")
+        from websockets.exceptions import ConnectionClosed
+        if isinstance(e, ConnectionClosed):
+            logger.info(f"WebSocket connection closed for session {session_id}")
+        else:
+            logger.error(f"WebSocket error: {e}")
         if session_id and session_id in _streaming_sessions:
             session = _streaming_sessions[session_id]
             await websocket.send(json.dumps({
@@ -1422,6 +1411,9 @@ def start_websocket_server(host: str = "0.0.0.0", port: int = 8765) -> None:
         host: Host to bind to
         port: Port to listen on
     """
+    import asyncio
+    from websockets.server import serve
+
     logger.info(f"Starting WebSocket server on {host}:{port}")
 
     async def handler(websocket):
@@ -1435,6 +1427,8 @@ def start_websocket_server(host: str = "0.0.0.0", port: int = 8765) -> None:
         asyncio.run(main())
     except KeyboardInterrupt:
         logger.info("WebSocket server stopped by user")
+    except Exception as e:
+        logger.error(f"WebSocket server error: {e}")
 
 
 # =============================================================================

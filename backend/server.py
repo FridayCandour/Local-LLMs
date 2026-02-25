@@ -236,12 +236,13 @@ def _run_server(config: Config) -> None:
 def _signal_handler(signum: int, frame) -> None:
     """Handle shutdown signals for graceful shutdown.
 
-    Requirement 14.7: Implement graceful shutdown that properly closes
-    connections and saves state within 10 seconds
+    Calls shutdown() in a separate thread to avoid deadlocking
+    with serve_forever() in the main thread.
     """
     logger.info(f"Received signal {signum}, initiating graceful shutdown...")
     if _server:
-        _server.shutdown()
+        # shutdown() must be called from a different thread than serve_forever()
+        threading.Thread(target=_server.shutdown, daemon=True).start()
 
 
 def _setup_signal_handlers() -> None:

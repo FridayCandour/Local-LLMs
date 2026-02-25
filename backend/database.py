@@ -181,10 +181,7 @@ def init_db() -> None:
         """)
 
         # Store schema version
-        cursor.execute(
-            "PRAGMA user_version = ?",
-            (SCHEMA_VERSION,)
-        )
+        cursor.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
         conn.commit()
         logger.info(f"Database initialized at {load_config().database.path}")
