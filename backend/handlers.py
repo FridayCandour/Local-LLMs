@@ -402,11 +402,19 @@ def get_file_parser():
     return _file_parser
 
 
-def get_context_builder():
-    """Get or create context builder instance."""
+def get_context_builder(config=None):
+    """Get or create context builder instance.
+
+    Args:
+        config: Optional Config object. If provided, uses config.llm.n_ctx
+                for max_context_tokens. If None, uses default of 8192.
+    """
     global _context_builder
     if _context_builder is None:
+        max_context_tokens = config.llm.n_ctx if config else 8192
+        context_config = ContextBuilderConfig(max_context_tokens=max_context_tokens)
         _context_builder = ContextBuilder(
+            config=context_config,
             token_estimator=get_token_estimator()
         )
     return _context_builder
@@ -418,18 +426,23 @@ def get_llm_provider() -> LLMProvider:
     if _llm_provider is None:
         config = get_config()
         _llm_provider = create_local_provider(
-            model_path=config.llm.model,
+            model_path=config.llm.model_path,
             system_prompt=config.llm.system_prompt,
             config=LLMConfig(
                 max_tokens=config.llm.max_tokens,
                 temperature=config.llm.temperature,
                 top_p=config.llm.top_p,
                 top_k=config.llm.top_k,
+                stop_tokens=config.llm.stop,
+                n_ctx=config.llm.n_ctx,
+                n_batch=config.llm.n_batch,
+                n_threads=config.llm.n_threads,
+                n_gpu_layers=config.llm.n_gpu_layers,
             )
         )
         try:
             _llm_provider.connect()
-            logger.info(f"Connected to local LLM: {config.llm.model}")
+            logger.info(f"Connected to local LLM: {config.llm.model_path}")
         except Exception as e:
             logger.warning(f"Failed to connect to LLM: {e}")
     return _llm_provider
@@ -722,7 +735,7 @@ def create_message_handler(handler: BaseHTTPRequestHandler, params: Dict[str, st
             created_at=user_message.created_at or 0,
         ))
 
-        context_builder = get_context_builder()
+        context_builder = get_context_builder(get_config())
         context = context_builder.build_context(
             context_messages,
             system_prompt=session.system_prompt
@@ -1307,7 +1320,7 @@ async def _stream_llm_response(websocket, session_id: str, content: str) -> None
             created_at=user_message.created_at or 0,
         ))
 
-        context_builder = get_context_builder()
+        context_builder = get_context_builder(get_config())
         context = context_builder.build_context(
             context_messages,
             system_prompt=db_session.system_prompt
