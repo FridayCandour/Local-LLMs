@@ -181,8 +181,9 @@ class StreamHandler {
      */
     _getWebSocketUrl(sessionId) {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const host = window.location.host;
-        return `${protocol}//${host}/api/v1/ws/${sessionId}`;
+        const hostname = window.location.hostname;
+        // WebSocket server runs on a separate port (8765)
+        return `${protocol}//${hostname}:8765/api/v1/ws/${sessionId}`;
     }
 
     /**

@@ -48,8 +48,11 @@ class VirtualScrollManager {
     this.renderedMessages = new Map();
 
     this._onScroll = this._onScroll.bind(this);
-    this._measureMessageHeight = this._measureMessageHeight.bind(this);
     this._updateVisibleRange = this._updateVisibleRange.bind(this);
+    this._debouncedUpdate = debounce(
+      this._updateVisibleRange,
+      SCROLL_DEBOUNCE_MS,
+    );
   }
 
   /**

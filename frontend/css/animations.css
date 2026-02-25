@@ -1,0 +1,101 @@
+/* Animation Keyframes & Transitions */
+
+/* ========================================
+   Page / Component Transitions
+   ======================================== */
+
+.sidebar {
+  transition: transform var(--transition-slow, 0.3s) ease,
+              width var(--transition-slow, 0.3s) ease;
+}
+
+.message {
+  animation: messageIn 0.2s ease-out;
+}
+
+@keyframes messageIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ========================================
+   Streaming cursor blink
+   ======================================== */
+
+.streaming-cursor::after {
+  content: "▊";
+  animation: cursorBlink 0.8s step-end infinite;
+  color: var(--primary-color, #6366f1);
+}
+
+@keyframes cursorBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* ========================================
+   Toast slide-in (supplement to components.css)
+   ======================================== */
+
+.toast {
+  animation: toastIn 0.3s ease-out;
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ========================================
+   Button press feedback
+   ======================================== */
+
+.send-btn:active,
+.new-session-btn:active {
+  transform: scale(0.96);
+}
+
+/* ========================================
+   Modal entrance
+   ======================================== */
+
+.modal-content {
+  animation: modalIn 0.25s ease-out;
+}
+
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* ========================================
+   Reduced Motion
+   ======================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
