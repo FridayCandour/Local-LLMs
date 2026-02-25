@@ -787,23 +787,7 @@ async function handleNewSession() {
     sessionId = data.id;
   } catch (err) {
     console.warn("Failed to create session on backend:", err);
-    // Fallback to client-side ID
-    sessionId = generateId();
   }
-
-  const session = {
-    id: sessionId,
-    name: "New Chat",
-    createdAt: now,
-    updatedAt: now,
-    messages: [],
-    llmConfig: {},
-    contextTokens: 0,
-    isTyping: false,
-  };
-
-  stateStore.addSession(session);
-  stateStore.setActiveSession(sessionId);
 
   // Clear message area for new session
   updateMessageList([]);
