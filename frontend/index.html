@@ -83,32 +83,6 @@
 
           <div class="messages-container">
             <!-- Messages will be rendered here dynamically -->
-            <article class="message message-user" data-message-id="msg-1">
-              <div class="message-header">
-                <span class="message-author">You</span>
-                <time class="message-time" datetime="2024-01-01T10:00:00"
-                  >10:00 AM</time
-                >
-              </div>
-              <div class="message-content">
-                <p>Hello, how are you?</p>
-              </div>
-            </article>
-
-            <article class="message message-assistant" data-message-id="msg-2">
-              <div class="message-header">
-                <span class="message-author">Assistant</span>
-                <time class="message-time" datetime="2024-01-01T10:00:05"
-                  >10:00 AM</time
-                >
-              </div>
-              <div class="message-content">
-                <p>
-                  I'm doing well, thank you for asking! How can I help you
-                  today?
-                </p>
-              </div>
-            </article>
           </div>
 
           <div class="typing-indicator" aria-hidden="true">
@@ -345,13 +319,7 @@
       <!-- Toast notifications will be rendered here dynamically -->
     </div>
 
-    <!-- JavaScript Modules -->
-    <script type="module" src="js/core.js"></script>
-    <script type="module" src="js/state.js"></script>
-    <script type="module" src="js/ui.js"></script>
-    <script type="module" src="js/stream.js"></script>
-    <script type="module" src="js/storage.js"></script>
-    <script type="module" src="js/uploader.js"></script>
-    <script type="module" src="js/renderer.js"></script>
+    <!-- JavaScript Entry Point -->
+    <script type="module" src="js/app.js"></script>
   </body>
 </html>

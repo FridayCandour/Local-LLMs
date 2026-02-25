@@ -135,6 +135,8 @@ class Router:
         
         # Check for pattern match with parameters
         for pattern_route in self._pattern_routes:
+            if pattern_route.method != method_upper:
+                continue
             match = pattern_route.regex_pattern.match(path)
             if match:
                 params = match.groupdict()

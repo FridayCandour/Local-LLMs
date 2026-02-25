@@ -249,6 +249,48 @@ body {
   flex-wrap: wrap;
 }
 
+.composer-counter {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  background: var(--input-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  color: var(--text-primary);
+}
+
+.attachment-name {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-size {
+  color: var(--text-secondary);
+}
+
+.attachment-remove-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: var(--font-size-base);
+  line-height: 1;
+  padding: 0 2px;
+}
+
+.attachment-remove-btn:hover {
+  color: var(--error-text, #ef4444);
+}
+
 .action-btn {
   background: transparent;
   border: none;

@@ -772,8 +772,24 @@ function handleSessionListDblClick(e) {
  * Requirement 2.2: Add to sidebar and make active within 50ms
  */
 async function handleNewSession() {
-  const sessionId = generateId();
   const now = getTimestamp();
+
+  // Create session on backend first to get the real ID
+  let sessionId;
+  try {
+    const res = await fetch(getApiUrl("/sessions"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "New Chat" }),
+    });
+    if (!res.ok) throw new Error(`Server responded with ${res.status}`);
+    const data = await res.json();
+    sessionId = data.id;
+  } catch (err) {
+    console.warn("Failed to create session on backend:", err);
+    // Fallback to client-side ID
+    sessionId = generateId();
+  }
 
   const session = {
     id: sessionId,
@@ -788,17 +804,6 @@ async function handleNewSession() {
 
   stateStore.addSession(session);
   stateStore.setActiveSession(sessionId);
-
-  // Persist to backend
-  try {
-    await fetch(getApiUrl("/sessions"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: session.name }),
-    });
-  } catch (err) {
-    console.warn("Failed to persist new session to backend:", err);
-  }
 
   // Clear message area for new session
   updateMessageList([]);
@@ -824,11 +829,32 @@ async function handleSwitchSession(sessionId) {
   // Update title
   updateCurrentSessionTitle(session.name || "Untitled");
 
-  // Load messages from state
-  const messages = session.messages || [];
-  updateMessageList(messages);
+  // Load messages from state first for instant display
+  let messages = session.messages || [];
 
-  // Scroll to bottom of conversation
+  // If no messages in state, fetch from backend
+  if (messages.length === 0) {
+    try {
+      const res = await fetch(getApiUrl(`/sessions/${sessionId}/messages`));
+      if (res.ok) {
+        const data = await res.json();
+        const fetched = data.messages || data || [];
+        messages = fetched.map((m) => ({
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          status: "complete",
+          timestamp: m.created_at || 0,
+          createdAt: m.created_at || 0,
+        }));
+        stateStore.updateSession(sessionId, { messages });
+      }
+    } catch (err) {
+      console.warn("Failed to load messages:", err);
+    }
+  }
+
+  updateMessageList(messages);
   virtualScrollManager.scrollToBottom();
 }
 
@@ -1176,6 +1202,8 @@ async function handleSendMessage() {
   if (streamHandler.isConnected()) {
     streamHandler.sendSendMessage(sessionId, content, true);
   } else {
+    // Show typing indicator while waiting for LLM response
+    showTypingIndicator();
     try {
       const res = await fetch(getApiUrl(`/sessions/${sessionId}/messages`), {
         method: "POST",
@@ -1188,11 +1216,28 @@ async function handleSendMessage() {
       if (!res.ok) {
         throw new Error(`Server responded with ${res.status}`);
       }
+      const data = await res.json();
       stateStore.updateMessageStatus(sessionId, messageId, "complete");
+
+      // Add assistant response to UI
+      if (data.response) {
+        const assistantMsg = {
+          id: data.response.id,
+          role: "assistant",
+          content: data.response.content || "",
+          status: "complete",
+          timestamp: data.response.created_at || getTimestamp(),
+          createdAt: data.response.created_at || getTimestamp(),
+        };
+        stateStore.addMessage(sessionId, assistantMsg);
+        addMessage(assistantMsg);
+      }
     } catch (err) {
       console.error("Failed to send message:", err);
       stateStore.updateMessageStatus(sessionId, messageId, "error");
       showError("Failed to send message. Please try again.");
+    } finally {
+      hideTypingIndicator();
     }
   }
 }
